@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prototipe AI Trading Analyst</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #111827; /* Dark background */
+            color: #E5E7EB; /* Light text */
+        }
+        .glass-card {
+            background: rgba(31, 41, 55, 0.6); /* Semi-transparent dark gray */
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 1rem;
+        }
+        .btn-primary {
+            background-image: linear-gradient(to right, #3B82F6, #8B5CF6);
+            transition: all 0.3s ease;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.5);
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3B82F6;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-4xl glass-card p-6 md:p-8">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl md:text-4xl font-bold text-white">AI Trading Analyst</h1>
+            <p class="text-gray-400 mt-2">Unggah screenshot chart trading Anda untuk mendapatkan analisa.</p>
+        </header>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Upload and Image Preview Section -->
+            <div class="space-y-4">
+                <div id="image-uploader" class="border-2 border-dashed border-gray-600 rounded-lg p-8 text-center cursor-pointer hover:border-blue-500 transition">
+                    <input type="file" id="chart-input" class="hidden" accept="image/*">
+                    <svg class="mx-auto h-12 w-12 text-gray-500" stroke="currentColor" fill="none" viewBox="0 0 48 48" aria-hidden="true">
+                        <path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                    <p id="upload-text" class="mt-2 text-gray-400">Klik untuk mengunggah atau seret gambar ke sini</p>
+                    <p class="text-xs text-gray-500">PNG, JPG, WEBP (maks. 4MB)</p>
+                </div>
+
+                <div id="image-preview-container" class="hidden w-full aspect-video bg-gray-900 rounded-lg overflow-hidden border border-gray-700">
+                    <img id="image-preview" src="" alt="Preview Chart" class="w-full h-full object-contain">
+                </div>
+                 <button id="analyze-button" class="w-full btn-primary text-white font-semibold py-3 px-4 rounded-lg shadow-md disabled:opacity-50 disabled:cursor-not-allowed" disabled>
+                    Analisa Chart
+                </button>
+            </div>
+
+            <!-- AI Analysis Section -->
+            <div id="analysis-section" class="glass-card p-6 min-h-[300px] flex flex-col">
+                <h2 class="text-xl font-semibold text-white mb-4">Hasil Analisa AI</h2>
+                <div id="loader" class="hidden self-center my-auto">
+                    <div class="loader"></div>
+                    <p class="mt-2 text-gray-400">AI sedang berpikir...</p>
+                </div>
+                <div id="analysis-result" class="text-gray-300 overflow-y-auto flex-grow">
+                    <p id="placeholder-text">Hasil analisa akan muncul di sini. Unggah gambar dan klik tombol "Analisa Chart" untuk memulai.</p>
+                </div>
+            </div>
+        </div>
+         <footer class="text-center mt-8 text-gray-500 text-sm">
+            <p>&copy; 2025 Dibuat oleh Trader Veteran. Prototipe ini hanya untuk tujuan demonstrasi.</p>
+        </footer>
+    </div>
+
+    <script>
+        const chartInput = document.getElementById('chart-input');
+        const imageUploader = document.getElementById('image-uploader');
+        const uploadText = document.getElementById('upload-text');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const analyzeButton = document.getElementById('analyze-button');
+        const analysisResult = document.getElementById('analysis-result');
+        const placeholderText = document.getElementById('placeholder-text');
+        const loader = document.getElementById('loader');
+
+        let imageDataBase64 = null;
+
+        // Handle file upload via click
+        imageUploader.addEventListener('click', () => chartInput.click());
+
+        // Handle file upload via drag and drop
+        imageUploader.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            imageUploader.classList.add('border-blue-500');
+        });
+        imageUploader.addEventListener('dragleave', () => {
+            imageUploader.classList.remove('border-blue-500');
+        });
+        imageUploader.addEventListener('drop', (event) => {
+            event.preventDefault();
+            imageUploader.classList.remove('border-blue-500');
+            const files = event.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        // Handle file selection from input
+        chartInput.addEventListener('change', (event) => {
+            if (event.target.files && event.target.files[0]) {
+                handleFile(event.target.files[0]);
+            }
+        });
+
+        function handleFile(file) {
+            if (file.size > 4 * 1024 * 1024) { // 4MB limit
+                alert("Ukuran file terlalu besar. Maksimal 4MB.");
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                imagePreview.src = e.target.result;
+                imageDataBase64 = e.target.result.split(',')[1]; // Get base64 part
+                imagePreviewContainer.classList.remove('hidden');
+                uploadText.textContent = file.name;
+                analyzeButton.disabled = false;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        analyzeButton.addEventListener('click', async () => {
+            if (!imageDataBase64) {
+                alert("Silakan unggah gambar terlebih dahulu.");
+                return;
+            }
+
+            // Show loader and hide previous results
+            loader.classList.remove('hidden');
+            analysisResult.classList.add('hidden');
+            placeholderText.classList.add('hidden');
+            analyzeButton.disabled = true;
+
+            try {
+                const analysisText = await analyzeChartWithAI(imageDataBase64);
+                // Sanitize and format the output
+                let formattedText = analysisText.replace(/\n/g, '<br>');
+                // Bold text enclosed in **
+                formattedText = formattedText.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>');
+                analysisResult.innerHTML = formattedText;
+            } catch (error) {
+                console.error('Error during AI analysis:', error);
+                analysisResult.innerHTML = `<p class="text-red-400">Terjadi kesalahan saat menganalisa. Silakan coba lagi. Error: ${error.message}</p>`;
+            } finally {
+                // Hide loader and show results
+                loader.classList.add('hidden');
+                analysisResult.classList.remove('hidden');
+                analyzeButton.disabled = false;
+            }
+        });
+
+        /**
+         * Calls a multimodal AI model (Gemini) to analyze the chart based on a strict prompt.
+         * @param {string} base64ImageData The base64 encoded image data.
+         * @returns {Promise<string>} The analysis text from the AI.
+         */
+        async function analyzeChartWithAI(base64ImageData) {
+            const apiKey = ""; // API Key is handled by the environment
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+            
+            const prompt = `Anda adalah seorang TRADER FOREX PROFESIONAL yang sangat sistematis dan berbasis data. Analisa gambar chart ini dengan ketat berdasarkan arsitektur yang ditentukan.
+
+Ikuti struktur output di bawah ini dengan SANGAT KETAT:
+
+**Trading Plan Lengkap**
+
+* **Aset & Timeframe:** (Coba identifikasi dari gambar, jika tidak ada, tulis "Tidak teridentifikasi")
+* **Analisa Konteks Pasar:** (Jelaskan tren utama yang terlihat, misal: "Secara umum, struktur pasar tampak Bullish karena harga membentuk higher lows.")
+
+**Checklist Konfirmasi (Minimal 3 Terpenuhi)**
+1.  **Konfirmasi Tren:** (Sebutkan: UPTREND / DOWNTREND / SIDEWAYS. Beri alasan singkat.)
+2.  **Konfirmasi Zona/Level:** (Sebutkan: Harga berada di zona SUPPORT / RESISTANCE / SBR / RBS. Jelaskan.)
+3.  **Konfirmasi Pola Pemicu (Trigger):** (Sebutkan pola candlestick atau chart pattern yang menjadi pemicu, misal: BULLISH ENGULFING / DOUBLE BOTTOM di area support.)
+4.  **Konfirmasi Indikator (Filter):** (IDENTIFIKASI indikator apa pun yang terlihat di chart seperti MACD, RSI, Stochastic, Fibonacci, MA. Jelaskan sinyalnya. Contoh: "RSI menunjukkan kondisi oversold di level 28." atau "Harga memantul dari Fibonacci level 61.8%." JIKA TIDAK ADA INDIKATOR, tulis "Tidak ada indikator yang digunakan.")
+
+---
+
+**Rencana Eksekusi**
+* **Sinyal:** (Tulis dengan jelas: **BUY** atau **SELL**)
+* **Open Posisi:** (Sebutkan perkiraan level harga untuk masuk)
+* **Take Profit 1 (TP1):** (Sebutkan level harga untuk TP1 dengan rasio ~1:2)
+* **Take Profit 2 (TP2):** (Sebutkan level harga untuk TP2 dengan rasio ~1:3 atau lebih)
+* **Stop Loss (SL):** (Sebutkan level harga untuk SL)
+
+---
+
+**RANGKUMAN REKOMENDASI**
+Berdasarkan analisa komprehensif di atas dengan 3+ konfirmasi, rekomendasi utama adalah: **[TULIS BUY atau SELL DI SINI]**
+
+* **Tingkat Keyakinan Analisa:** (Beri skor persentase antara 1-100% berdasarkan kekuatan dan jumlah konfirmasi. Contoh: **85%**. Semakin banyak konfirmasi terpenuhi, semakin tinggi skornya.)
+
+**Disclaimer:** Analisa ini adalah murni untuk tujuan edukasi berdasarkan data visual yang diberikan dan bukan merupakan nasihat keuangan. Tingkat keyakinan adalah cerminan dari kesesuaian data dengan model, bukan jaminan profit. Lakukan riset Anda sendiri.`;
+
+            const payload = {
+                contents: [
+                    {
+                        role: "user",
+                        parts: [
+                            { text: prompt },
+                            {
+                                inlineData: {
+                                    mimeType: "image/jpeg",
+                                    data: base64ImageData
+                                }
+                            }
+                        ]
+                    }
+                ],
+            };
+
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                 const errorBody = await response.text();
+                 throw new Error(`API request failed with status ${response.status}: ${errorBody}`);
+            }
+
+            const result = await response.json();
+            
+            if (result.candidates && result.candidates.length > 0 &&
+              result.candidates[0].content && result.candidates[0].content.parts &&
+              result.candidates[0].content.parts.length > 0) {
+                return result.candidates[0].content.parts[0].text;
+            } else {
+                console.warn("Unexpected API response structure:", result);
+                 if (result.promptFeedback && result.promptFeedback.blockReason) {
+                    return `Analisa diblokir karena: ${result.promptFeedback.blockReason}. Coba gambar yang lain.`;
+                }
+                return "AI tidak dapat memberikan analisa untuk gambar ini. Coba lagi.";
+            }
+        }
+    </script>
+</body>
+</html>
